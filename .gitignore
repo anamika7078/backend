@@ -45,3 +45,6 @@ ehthumbs.db
 # Temporary folders
 tmp/
 temp/
+
+
+/config/config.json
