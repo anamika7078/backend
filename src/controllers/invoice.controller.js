@@ -1,3 +1,4 @@
+// In invoice.controller.js
 const { Invoice, Booking, User } = require('../models');
 const { Op } = require('sequelize');
 
@@ -10,35 +11,43 @@ const generateInvoiceNumber = () => {
     return `INV-${year}${month}-${random}`;
 };
 
-// Create a new invoice
-exports.createInvoice = async (req, res) => {
+// Define controller methods
+const createInvoice = async (req, res) => {
+    console.log('createInvoice controller called');
     try {
-        const { bookingId, dueDate, items, notes } = req.body;
+        console.log('Request body:', req.body);
+        const { clientName, clientEmail, clientAddress, items, notes, status, subtotal, tax, total, dueDate } = req.body;
 
-        // Calculate total amount
-        const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+        if (!items || !Array.isArray(items)) {
+            console.error('Invalid items array');
+            return res.status(400).json({
+                success: false,
+                message: 'Items array is required'
+            });
+        }
 
         const invoice = await Invoice.create({
             invoiceNumber: generateInvoiceNumber(),
-            userId: req.user.id,
-            bookingId,
-            invoiceDate: new Date(),
-            dueDate,
-            status: 'draft',
+            clientName,
+            clientEmail,
+            clientAddress,
             items: JSON.stringify(items),
-            subtotal: totalAmount,
-            tax: 0, // Add tax calculation if needed
-            total: totalAmount,
-            notes
+            notes,
+            status: status || 'draft',
+            subtotal: parseFloat(subtotal) || 0,
+            tax: parseFloat(tax) || 0,
+            total: parseFloat(total) || 0,
+            dueDate: dueDate || null,
+            invoiceDate: new Date()
         });
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             data: invoice
         });
     } catch (error) {
-        console.error('Error creating invoice:', error);
-        res.status(500).json({
+        console.error('Error in createInvoice:', error);
+        return res.status(500).json({
             success: false,
             message: 'Error creating invoice',
             error: error.message
@@ -46,136 +55,83 @@ exports.createInvoice = async (req, res) => {
     }
 };
 
-// Get all invoices
-exports.getAllInvoices = async (req, res) => {
-    try {
-        const { status, fromDate, toDate } = req.query;
-        const where = {};
-
-        if (status) where.status = status;
-        if (fromDate && toDate) {
-            where.invoiceDate = {
-                [Op.between]: [new Date(fromDate), new Date(toDate)]
-            };
-        }
-
-        const invoices = await Invoice.findAll({
-            where,
-            include: [
-                { model: User, attributes: ['id', 'firstName', 'lastName', 'email'] },
-                { model: Booking, attributes: ['id', 'serviceType', 'startDate', 'endDate'] }
-            ],
-            order: [['createdAt', 'DESC']]
-        });
-
-        res.status(200).json({
-            success: true,
-            data: invoices
-        });
-    } catch (error) {
-        console.error('Error fetching invoices:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching invoices',
-            error: error.message
-        });
-    }
-};
-
-// Get single invoice
-exports.getInvoice = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const invoice = await Invoice.findByPk(id, {
-            include: [
-                { model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'phone'] },
-                {
-                    model: Booking,
-                    attributes: ['id', 'serviceType', 'startDate', 'endDate', 'totalHours', 'hourlyRate'],
-                    include: [
-                        { model: User, as: 'Caregiver', attributes: ['id', 'firstName', 'lastName'] }
-                    ]
-                }
-            ]
-        });
-
-        if (!invoice) {
-            return res.status(404).json({
+// Export each method individually
+module.exports = {
+    createInvoice,
+    getAllInvoices: async (req, res) => {
+        try {
+            const invoices = await Invoice.findAll();
+            return res.json({ success: true, data: invoices });
+        } catch (error) {
+            console.error('Error getting invoices:', error);
+            return res.status(500).json({
                 success: false,
-                message: 'Invoice not found'
+                message: 'Error getting invoices',
+                error: error.message
             });
         }
-
-        res.status(200).json({
-            success: true,
-            data: invoice
-        });
-    } catch (error) {
-        console.error('Error fetching invoice:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching invoice',
-            error: error.message
-        });
-    }
-};
-
-// Update invoice status
-exports.updateInvoiceStatus = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        const invoice = await Invoice.findByPk(id);
-        if (!invoice) {
-            return res.status(404).json({
+    },
+    getInvoice: async (req, res) => {
+        try {
+            const invoice = await Invoice.findByPk(req.params.id);
+            if (!invoice) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Invoice not found'
+                });
+            }
+            return res.json({ success: true, data: invoice });
+        } catch (error) {
+            console.error('Error getting invoice:', error);
+            return res.status(500).json({
                 success: false,
-                message: 'Invoice not found'
+                message: 'Error getting invoice',
+                error: error.message
             });
         }
-
-        invoice.status = status;
-        await invoice.save();
-
-        res.status(200).json({
-            success: true,
-            data: invoice
-        });
-    } catch (error) {
-        console.error('Error updating invoice status:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error updating invoice status',
-            error: error.message
-        });
-    }
-};
-
-// Delete invoice
-exports.deleteInvoice = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const invoice = await Invoice.findByPk(id);
-
-        if (!invoice) {
-            return res.status(404).json({
+    },
+    updateInvoiceStatus: async (req, res) => {
+        try {
+            const invoice = await Invoice.findByPk(req.params.id);
+            if (!invoice) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Invoice not found'
+                });
+            }
+            invoice.status = req.body.status;
+            await invoice.save();
+            return res.json({ success: true, data: invoice });
+        } catch (error) {
+            console.error('Error updating invoice status:', error);
+            return res.status(500).json({
                 success: false,
-                message: 'Invoice not found'
+                message: 'Error updating invoice status',
+                error: error.message
             });
         }
-
-        await invoice.destroy();
-
-        res.status(200).json({
-            success: true,
-            message: 'Invoice deleted successfully'
-        });
-    } catch (error) {
-        console.error('Error deleting invoice:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error deleting invoice',
-            error: error.message
-        });
+    },
+    deleteInvoice: async (req, res) => {
+        try {
+            const invoice = await Invoice.findByPk(req.params.id);
+            if (!invoice) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Invoice not found'
+                });
+            }
+            await invoice.destroy();
+            return res.json({
+                success: true,
+                message: 'Invoice deleted successfully'
+            });
+        } catch (error) {
+            console.error('Error deleting invoice:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Error deleting invoice',
+                error: error.message
+            });
+        }
     }
 };

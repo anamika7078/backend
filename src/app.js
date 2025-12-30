@@ -15,6 +15,7 @@ const caregiverRoutes = require('./routes/caregiver.routes');
 const familyMemberRoutes = require('./routes/familyMember.routes');
 const contactRoutes = require('./routes/contactRoutes');
 const userRoutes = require('./routes/user.routes');
+const invoiceRoutes = require('./routes/invoice.routes');
 
 // Initialize express app
 const app = express();
@@ -73,7 +74,7 @@ app.use('/api/caregivers', caregiverRoutes);
 app.use('/api/family-members', familyMemberRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/users', userRoutes);
-
+app.use('/api/invoices', invoiceRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error:', err);

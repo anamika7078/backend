@@ -42,11 +42,13 @@ const User = require('./User.model')(sequelize, DataTypes);
 const Contact = require('./Contact.model')(sequelize, DataTypes);
 const Booking = require('./Booking.model')(sequelize, DataTypes);
 const Caregiver = require('./Caregiver.model')(sequelize, DataTypes);
+const Invoice = require('./Invoice.model')(sequelize, DataTypes);
 
 db[User.name] = User;
 db[Contact.name] = Contact;
 db[Booking.name] = Booking;
 db[Caregiver.name] = Caregiver;
+db[Invoice.name] = Invoice;
 
 // Associate models
 Object.keys(db).forEach(modelName => {
