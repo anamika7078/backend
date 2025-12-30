@@ -36,12 +36,11 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-const sequelize = new Sequelize(
-    process.env.DB_NAME,
-    process.env.DB_USER,
-    process.env.DB_PASSWORD,
-    {
-        host: process.env.DB_HOST,
+let sequelize;
+
+// Check if DATABASE_URL is provided (common on Render)
+if (process.env.DATABASE_URL) {
+    sequelize = new Sequelize(process.env.DATABASE_URL, {
         dialect: 'mysql',
         logging: process.env.NODE_ENV === 'development' ? console.log : false,
         define: {
@@ -62,8 +61,38 @@ const sequelize = new Sequelize(
                 }
             }
         }
-    }
-);
+    });
+} else {
+    // Use individual environment variables (for local development)
+    sequelize = new Sequelize(
+        process.env.DB_NAME,
+        process.env.DB_USER,
+        process.env.DB_PASSWORD,
+        {
+            host: process.env.DB_HOST,
+            dialect: 'mysql',
+            logging: process.env.NODE_ENV === 'development' ? console.log : false,
+            define: {
+                timestamps: true,
+                underscored: true,
+                timestampsWithDefaults: true,
+                charset: 'utf8mb4',
+                collate: 'utf8mb4_unicode_ci',
+                freezeTableName: true,
+                paranoid: true,
+                dialectOptions: {
+                    dateStrings: true,
+                    typeCast: function (field, next) {
+                        if (field.type === 'DATETIME') {
+                            return field.string();
+                        }
+                        return next();
+                    }
+                }
+            }
+        }
+    );
+}
 
 module.exports = {
     sequelize,
