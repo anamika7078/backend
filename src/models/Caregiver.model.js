@@ -82,7 +82,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true
         }
     }, {
-        tableName: 'Caregivers',
+        tableName: 'caregivers',
         timestamps: true
     });
     Caregiver.associate = (models) => {
