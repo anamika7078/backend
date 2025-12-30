@@ -3,54 +3,61 @@
 const fs = require('fs');
 const path = require('path');
 const { Sequelize, DataTypes } = require('sequelize');
-const process = require('process');
+
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../config/config.json')[env];
+const config = require(path.join(__dirname, '../config/config.json'))[env];
 const db = {};
 
-// Initialize Sequelize
-let sequelize;
-if (config.use_env_variable) {
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
-} else {
-  sequelize = new Sequelize(
-    config.database,
-    config.username,
-    config.password,
-    {
-      host: config.host,
-      dialect: config.dialect,
-      logging: console.log, // Enable SQL logging
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000
-      }
-    }
-  );
+if (!config) {
+  console.error(`❌ Sequelize config not found for env: ${env}`);
+  process.exit(1);
 }
+
+// Initialize Sequelize
+const sequelize = new Sequelize(
+  config.database,
+  config.username,
+  config.password,
+  {
+    host: config.host,
+    port: config.port || process.env.DB_PORT,
+    dialect: config.dialect,
+    logging: false,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  }
+);
 
 // Test the connection
 sequelize.authenticate()
-  .then(() => console.log('Database connected...'))
-  .catch(err => console.error('Unable to connect to the database:', err));
+  .then(() => console.log('✅ Database connected'))
+  .catch(err => console.error('❌ Unable to connect to database:', err));
 
-// Import models
-const User = require('./User.model')(sequelize, DataTypes);
-const Contact = require('./Contact.model')(sequelize, DataTypes);
-const Booking = require('./Booking.model')(sequelize, DataTypes);
-const Caregiver = require('./Caregiver.model')(sequelize, DataTypes);
-const Invoice = require('./Invoice.model')(sequelize, DataTypes);
+const models = [
+  'User.model',
+  'Contact.model',
+  'Booking.model',
+  'Caregiver.model',
+  'Invoice.model'
+];
 
-db[User.name] = User;
-db[Contact.name] = Contact;
-db[Booking.name] = Booking;
-db[Caregiver.name] = Caregiver;
-db[Invoice.name] = Invoice;
+models.forEach(file => {
+  const model = require(path.join(__dirname, file))(sequelize, DataTypes);
+  db[model.name] = model;
+});
 
-// Associate models
+// associations
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
